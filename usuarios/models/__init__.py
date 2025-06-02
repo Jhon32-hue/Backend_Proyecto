@@ -1,0 +1,1 @@
+from .usuario import Usuario  # Esto hace que Django lo detecte
