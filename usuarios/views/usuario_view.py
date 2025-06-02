@@ -4,6 +4,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from usuarios.models.usuario import Usuario
 from usuarios.serializers.usuario_serializer import Usuario_Serializer
 from django.utils import timezone
+from rest_framework.permissions import AllowAny
+
 
 
 
@@ -35,3 +37,4 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class UsuarioRegistroView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
     serializer_class = Usuario_Serializer
+    permission_classes = [AllowAny] 
