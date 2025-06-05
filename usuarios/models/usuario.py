@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
-#Configuración para reemplazar username por email como dato para autentificar ususarios y modelo de usuario personalizado
+#Configuración para reemplazar username (autentificar ususarios) y modelado de registro de usuarios personalizado
 
 # Manager personalizado
 class UserManager(BaseUserManager):

@@ -1,5 +1,6 @@
 from django.urls import path
+from proyectos.views.proyecto_view import CrearProyectoView
 
 urlpatterns = [
-    # Aquí irán las rutas específicas de la app proyectos
+    path('create/', CrearProyectoView.as_view(), name='crear-proyecto'),
 ]

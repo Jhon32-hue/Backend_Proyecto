@@ -4,6 +4,7 @@ from rest_framework import status
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
+from usuarios.serializers.usuario_serializer import Usuario_Serializer
 
 #Función personalizada para iniciar sesión
 @api_view(['POST'])
@@ -12,7 +13,7 @@ def login_view(request):
     #Obtener el usuario y la contraseña que se ha enviado
     email_from_client= request.data.get('email')
     password_from_client= request.data.get('password')
-
+    
     #Se valida si el usuario está en la base de datos
     user = authenticate(email= email_from_client, password = password_from_client)
 
@@ -21,8 +22,12 @@ def login_view(request):
         refresh = RefreshToken.for_user(user)
         return Response(
             {
+                'email' : email_from_client,
+                'nombre_completo' : user.nombre_completo,
+                'user_id' : user.id,
+                'estado_cuenta' : user.estado_cuenta,
                 'refresh' : str(refresh),
-                'token' : str(refresh.access_token)
+                'token' : str(refresh.access_token),
             },
             status.HTTP_200_OK
         )
