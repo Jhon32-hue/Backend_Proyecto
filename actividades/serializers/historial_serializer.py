@@ -2,10 +2,11 @@ from rest_framework import serializers
 from actividades.models.historial import Historial_Actividad
 
 class Historial_Actividad_Serializer(serializers.ModelSerializer):
-    nombre_usuario = serializers.StringRelatedField(source='usuario', read_only=True)
-    nombre_proyecto = serializers.StringRelatedField(source='proyecto', read_only=True)
-    nombre_tarea = serializers.StringRelatedField(source='tarea', read_only=True)
-    rol_participacion = serializers.StringRelatedField(source='participacion', read_only=True)
+    nombre_usuario = serializers.CharField(source='usuario.nombre_completo', read_only=True)
+    nombre_proyecto = serializers.CharField(source='proyecto.nombre', read_only=True)
+    nombre_tarea = serializers.CharField(source='tarea.nombre', read_only=True, default=None)
+    rol_participacion = serializers.CharField(source='participacion.id_rol.nombre', read_only=True, default=None)
+    nombre_hu = serializers.StringRelatedField(source='historia_usuario.titulo', read_only=True)
 
     class Meta:
         model = Historial_Actividad
@@ -17,11 +18,13 @@ class Historial_Actividad_Serializer(serializers.ModelSerializer):
             'nombre_proyecto',
             'tarea',
             'nombre_tarea',
+            'historia_usuario',
+            'nombre_hu',
             'participacion',
             'rol_participacion',
             'accion_realizada',
             'fecha_hora',
-        ]
+]
 
 #Método para asegurar que toda actividad esté asociada al menos a un proyecto o a una tarea.
     def validate(self, data):

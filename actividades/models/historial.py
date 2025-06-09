@@ -3,6 +3,7 @@ from proyectos.models.tarea import Tarea
 from proyectos.models.participacion import Participacion
 from proyectos.models.proyecto import Proyecto
 from usuarios.models.usuario import Usuario
+from proyectos.models.hu import Historia_usuario
 
 class Historial_Actividad(models.Model):
     id_actividad = models.AutoField(primary_key=True)
@@ -32,6 +33,13 @@ class Historial_Actividad(models.Model):
         Participacion,
         on_delete=models.CASCADE,
         related_name='actividades',
+        null=True, blank=True
+    )
+
+    historia_usuario =models.ForeignKey(
+        Historia_usuario,
+        on_delete=models.CASCADE,
+        related_name='historia_usuario',
         null=True, blank=True
     )
 

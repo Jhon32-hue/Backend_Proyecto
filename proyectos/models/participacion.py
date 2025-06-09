@@ -11,12 +11,12 @@ class Participacion(models.Model):
     id_rol = models.ForeignKey(Rol, on_delete=models.CASCADE)
     estado_participacion = models.CharField(max_length=20, choices=[
         ('activo', 'Activo'),
-        ('inactivo', 'Inactivo')
-    ])
+        ('inactivo', 'Inactivo')])
+
     fecha_incorporacion = models.DateField(default=timezone.now)
 
     class Meta:
         unique_together = ('id_proyecto', 'id_rol')  # ❗Restricción: rol exclusivo por proyecto
 
     def __str__(self):
-        return f"{self.id_usuario} está participando como un {self.id_rol} en {self.id_proyecto}"
+        return f"{self.id_usuario} está participando como {self.id_rol} en {self.id_proyecto}"

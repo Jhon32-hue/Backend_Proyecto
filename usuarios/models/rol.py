@@ -12,4 +12,4 @@ class Rol(models.Model):
     descripcion =models.TextField(blank=True)
 
     def __str__(self):
-        return f'Felicidades, ahora eres un {self.nombre_rol}'
+        return f'{self.nombre_rol}'
