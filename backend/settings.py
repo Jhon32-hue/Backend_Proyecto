@@ -16,7 +16,6 @@ from dotenv import load_dotenv #Carga las variables del archivo .env
 from decouple import config
 from datetime import timedelta
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -46,12 +45,46 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework_simplejwt',
-    'actividades',
+    'rest_framework.authtoken',
+    'rest_framework_simplejwt.token_blacklist',
+    'django.contrib.sites',
+
+
+    # Autenticación API
+    'dj_rest_auth',
+    'dj_rest_auth.registration',
+
+    # Google OAuth2
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+
+    # Módulos_App
+    'usuarios',
     'autenticacion',
     'proyectos',
-    'usuarios',
+    'actividades',
 ]
+
+SITE_ID = 1
+
+# Permitir autenticación por cuenta o email
+ACCOUNT_EMAIL_VERIFICATION = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USERNAME_REQUIRED = False
+
+
+REST_USE_JWT = True
+ACCOUNT_LOGOUT_ON_GET = True
+
+REST_AUTH_REGISTER_SERIALIZERS = {
+    'REGISTER_SERIALIZER': 'usuarios.usuario_serializers.CustomRegisterSerializer',
+}
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -59,11 +92,11 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'crum.CurrentRequestUserMiddleware',   # Añade este middleware de crum AQUÍ
+    'crum.CurrentRequestUserMiddleware',   
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
-
 
 
 #Diccionario JWT Autenticación   
@@ -192,3 +225,26 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'usuarios.Usuario'
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        },
+        'APP': {
+            'client_id': config('GOOGLE_CLIENT_ID'),
+            'secret': config('GOOGLE_CLIENT_SECRET'),
+            'key': ''
+        }
+    }
+}

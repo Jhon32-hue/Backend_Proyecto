@@ -28,4 +28,9 @@ urlpatterns = [
     path('api/proyectos/', include('proyectos.urls')),
     path('api/usuarios/', include('usuarios.urls')),
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/', include('dj_rest_auth.urls')),  # login/logout
+    path('auth/registration/', include('dj_rest_auth.registration.urls')),  # registro
+    path('auth/social/', include('allauth.socialaccount.urls')),  # oauth2
+    path('auth/accounts/', include('allauth.urls')),  # Necesario para /accounts/google/login/
+
 ]

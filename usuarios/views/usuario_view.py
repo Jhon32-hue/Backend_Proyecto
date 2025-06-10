@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework.permissions import AllowAny
 
 
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = Usuario.USERNAME_FIELD
     @classmethod
