@@ -1,25 +1,25 @@
+# Imports comunes para que funcione la señal
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from proyectos.models.proyecto import Proyecto
 from proyectos.models.tarea import Tarea
 from proyectos.models.hu import Historia_usuario
 from actividades.models.historial import Historial_Actividad
+from proyectos.models.participacion import Participacion
 from crum import get_current_user
 from usuarios.models.usuario import Usuario
+from django.db.models.signals import post_save, post_delete, pre_save
 
+
+# Función para obtener el usuario responsable
 def obtener_usuario_valido():
     usuario = get_current_user()
     print("Usuario obtenido con crum:", usuario)
 
     if usuario is None or usuario.is_anonymous:
-        # Puedes dejar un usuario de prueba o None si quieres
-        try:
-            usuario = Usuario.objects.first()
-            print("Usuario fijo para test:", usuario)
-            return usuario
-        except Usuario.DoesNotExist:
-            return None
-
+        print("⚠️ Usuario no autenticado. No se registrará historial.")
+        return None  # No usar un usuario de fallback
+    
     try:
         usuario = Usuario.objects.get(id=usuario.id)
         print("Usuario válido:", usuario)
@@ -28,6 +28,7 @@ def obtener_usuario_valido():
         print("Usuario no existe en DB")
         return None
 
+### 🔸 SECCIÓN: Proyecto
 @receiver(post_save, sender=Proyecto)
 def historial_proyecto(sender, instance, created, **kwargs):
     print("🔥 Signal ejecutado para Proyecto")
@@ -49,7 +50,7 @@ def historial_eliminar_proyecto(sender, instance, **kwargs):
             proyecto=None,
             accion_realizada=f'Proyecto Eliminado: {instance.nombre}',
         )
-
+### 🔸 SECCIÓN: Tarea
 @receiver(post_save, sender=Tarea)
 def historial_tarea(sender, instance, created, **kwargs):
     usuario = obtener_usuario_valido()
@@ -61,6 +62,7 @@ def historial_tarea(sender, instance, created, **kwargs):
             proyecto=instance.proyecto,
             accion_realizada=f'Tarea {accion}: {instance.nombre}',
         )
+        
 
 @receiver(post_delete, sender=Tarea)
 def historial_eliminar_tarea(sender, instance, **kwargs):
@@ -72,7 +74,8 @@ def historial_eliminar_tarea(sender, instance, **kwargs):
             proyecto=instance.proyecto,
             accion_realizada=f'Tarea Eliminada: {instance.nombre}',
         )
-
+        
+### 🔸 SECCIÓN: Historia de Usuario
 @receiver(post_save, sender=Historia_usuario)
 def historial_hu(sender, instance, created, **kwargs):
     usuario = obtener_usuario_valido()
@@ -84,6 +87,7 @@ def historial_hu(sender, instance, created, **kwargs):
             proyecto=instance.proyecto,
             accion_realizada=f'HU {accion}: {instance.titulo}',
         )
+        
 
 @receiver(post_delete, sender=Historia_usuario)
 def historial_eliminar_hu(sender, instance, **kwargs):
@@ -95,3 +99,28 @@ def historial_eliminar_hu(sender, instance, **kwargs):
             proyecto=instance.proyecto,
             accion_realizada=f'HU Eliminada: {instance.titulo}',
         )
+        
+### 🔸 SECCIÓN: Cambio de Rol en Participación
+@receiver(pre_save, sender=Participacion)
+def guardar_rol_anterior(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instancia_anterior = Participacion.objects.get(pk=instance.pk)
+            instance._rol_anterior = instancia_anterior.id_rol
+        except Participacion.DoesNotExist:
+            instance._rol_anterior = None
+
+@receiver(post_save, sender=Participacion)
+def historial_cambio_rol(sender, instance, created, **kwargs):
+    if not created and hasattr(instance, '_rol_anterior'):
+        rol_anterior = instance._rol_anterior
+        rol_nuevo = instance.id_rol
+
+        if rol_anterior and rol_nuevo and rol_anterior != rol_nuevo:
+            usuario = obtener_usuario_valido()
+            if usuario:
+                Historial_Actividad.objects.create(
+                    usuario=usuario,
+                    proyecto=instance.id_proyecto,
+                    accion_realizada=f'Rol cambiado en participación: {rol_anterior.nombre_rol} → {rol_nuevo.nombre_rol}',
+                )

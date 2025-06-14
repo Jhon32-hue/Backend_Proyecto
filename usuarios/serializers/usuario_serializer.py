@@ -1,8 +1,11 @@
 from rest_framework import serializers
+from django.utils import timezone
 from usuarios.models.usuario import Usuario
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
+#Registro_Usuario
 class Usuario_Serializer (serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, min_length=8)
 
@@ -22,6 +25,47 @@ class Usuario_Serializer (serializers.ModelSerializer):
         return user
     
 
+# AUTH: TOKEN JWT PERSONALIZADO
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    username_field = Usuario.USERNAME_FIELD
+
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['email'] = user.email
+        token['nombre_completo'] = user.nombre_completo
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        # Actualizar última conexión
+        self.user.ultima_conexion = timezone.now()
+        self.user.save(update_fields=['ultima_conexion'])
+
+        # Agregar info adicional al token
+        data['user_id'] = self.user.id
+        data['email'] = self.user.email
+        data['nombre_completo'] = self.user.nombre_completo
+        return data
+
+#Actualizacion de datos
+class UsuarioUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Usuario
+        fields = ['email', 'nombre_completo']
+        extra_kwargs = {
+            'email': {'required': False},
+            'nombre_completo': {'required': False},
+        }
+
+    def validate_email(self, value):
+        user = self.context['request'].user
+        if Usuario.objects.exclude(pk=user.pk).filter(email=value).exists():
+            raise serializers.ValidationError("Este email ya está en uso por otro usuario.")
+        return value
+
+#Sobreescribir Username por email
 class CustomRegisterSerializer(RegisterSerializer):
     username = None  # <- Desactiva por completo el campo username
     email = serializers.EmailField(required=True)
@@ -34,3 +78,11 @@ class CustomRegisterSerializer(RegisterSerializer):
             'password1': self.validated_data.get('password1', ''),
             'password2': self.validated_data.get('password2', ''),
         }
+
+class EnviarCodigoRecuperacionSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ConfirmarCodigoRecuperacionSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    codigo = serializers.CharField(max_length=6)
+    password = serializers.CharField(write_only=True, min_length=8)

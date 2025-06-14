@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from usuarios.serializers.usuario_serializer import Usuario_Serializer
 from usuarios.models.usuario import Usuario
-
+from django.utils import timezone
 
 #Función personalizada para iniciar sesión
 @api_view(['POST'])
@@ -45,17 +45,23 @@ def login_view(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_auth_callback_view(request):
-#Vista que se ejecuta después de autenticación OAuth con Google.
-#Recibe los datos del usuario autenticado con Google.
     email = request.data.get('email')
     nombre = request.data.get('nombre_completo')
 
+    if not email or not nombre:
+        return Response({'error': 'Faltan datos necesarios'}, status=400)
+
     try:
         user = Usuario.objects.get(email=email)
+        if user.nombre_completo != nombre:
+            user.nombre_completo = nombre
+            user.save(update_fields=['nombre_completo'])
     except Usuario.DoesNotExist:
         user = Usuario.objects.create_user(email=email, nombre_completo=nombre)
 
-    # Generar token JWT
+    user.ultima_conexion = timezone.now()
+    user.save(update_fields=['ultima_conexion'])
+
     refresh = RefreshToken.for_user(user)
     
     return Response({

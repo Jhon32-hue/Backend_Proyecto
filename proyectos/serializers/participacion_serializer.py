@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from proyectos.models.participacion import Participacion
 from usuarios.serializers.rol_serializer import Rol_Serializer
-from usuarios.serializers.usuario_serializer import Usuario_Serializer  # Ajusta si es necesario
-from proyectos.serializers.proyecto_serializer import ProyectoSerializer  # Ajusta si es necesario
+from usuarios.serializers.usuario_serializer import Usuario_Serializer  
+from proyectos.serializers.proyecto_serializer import ProyectoSerializer 
 
 class ParticipacionProyectoSerializer(serializers.ModelSerializer):
     id_usuario = Usuario_Serializer(read_only=True)

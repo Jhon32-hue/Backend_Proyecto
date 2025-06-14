@@ -8,14 +8,14 @@ from actividades.serializers.historial_serializer import Historial_Actividad_Ser
 
 class Historial_Actividad_ListView(APIView):
     permission_classes = [IsAuthenticated]
-
+    #Obtiene el usuario de la solicitud
     def get(self, request):
         user = request.user
         print(f"[Vista] Usuario: {user} | Autenticado: {user.is_authenticated}")
 
-        # Proyectos en los que participa
+        # Busca todos los proyectos en los que está participando el usuario y toma el id
         participaciones = user.participacion_set.all()
-        proyectos_ids = list(participaciones.values_list('id_proyecto', flat=True))
+        proyectos_ids = list(participaciones.values_list('id_proyecto', flat=True)) 
 
         # Historial del usuario o proyectos donde participa
         historial = Historial_Actividad.objects.filter(

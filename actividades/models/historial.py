@@ -12,7 +12,7 @@ class Historial_Actividad(models.Model):
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
-        related_name='actividades_realizadas'
+        related_name='actividades_realizadas',
     )
 
     proyecto = models.ForeignKey(

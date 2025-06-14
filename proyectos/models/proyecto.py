@@ -1,7 +1,7 @@
 from django.db import models
 from usuarios.models.usuario import Usuario
 
-#Por ahora esto solo me permite crear proyectos
+#Crear proyectos
 class Proyecto(models.Model):
     id_proyecto = models.AutoField(primary_key=True)
     ESTADOS = [

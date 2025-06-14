@@ -16,21 +16,22 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from usuarios.views.usuario_view import CustomTokenObtainPairView
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
     # Rutas por aplicacion
-    path('api/actividades/', include('actividades.urls')),
     path('api/autenticacion/', include('autenticacion.urls')),
-    path('api/proyectos/', include('proyectos.urls')),
-    path('api/usuarios/', include('usuarios.urls')),
-    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('auth/', include('dj_rest_auth.urls')),  # login/logout
-    path('auth/registration/', include('dj_rest_auth.registration.urls')),  # registro
-    path('auth/social/', include('allauth.socialaccount.urls')),  # oauth2
-    path('auth/accounts/', include('allauth.urls')),  # Necesario para /accounts/google/login/
+    path('api/proyectos/', include('proyectos.urls')), #/{id}/ (Se puede actualizar, detallar o eliminar proyecto), /estadisticas/, /invitar/, /cambiar-rol/
+
+    path('api/usuarios/', include('usuarios.urls')),  #/token/, /registro/, /perfil/, /listar/, /actualizar/, /eliminar/, /roles/, /recuperar-contraseña/, /confirmar-contraseña/
+    path('api/historial/', include('actividades.urls')),
+
+    #Rutas para inicio y registro de sesión OAuth2
+    path('auth/', include('dj_rest_auth.urls')),  # Habilita login con contraseña
+    path('auth/registration/', include('dj_rest_auth.registration.urls')),  # Registra a los usuarios que inician sesión con OAuth
+    path('auth/social/', include('allauth.socialaccount.urls')),  # Selecciona el proveedor  Google, etc)
+    path('auth/accounts/', include('allauth.urls')), #Callback desde el proveedor. Completa la url anterior
 
 ]
