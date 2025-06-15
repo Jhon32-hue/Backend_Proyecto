@@ -9,6 +9,10 @@ from django.urls import reverse
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+
 
 #Importaciones internas de los módulos
 from proyectos.models.proyecto import Proyecto
@@ -16,22 +20,31 @@ from proyectos.models.participacion import Participacion
 from usuarios.models.rol import Rol
 from usuarios.models.usuario import Usuario
 
+from proyectos.serializers.participacion_serializer import ParticipacionDetalleSerializer
 from proyectos.serializers.proyecto_serializer import (
     ProyectoSerializer,
     InvitacionColaboradorSerializer,
     CambiarRolSerializer,
-    ParticipacionSerializer,
+    ProyectoConParticipacionSerializer
 )
 
 #Gestión de operaciones CRUD(create, read, update, delete) Y lógica personalizada de manipulación de proyectos
 class ProyectoViewSet(viewsets.ModelViewSet):
+
+    #Listar proyectos asociados al usuario autenticado
     queryset = Proyecto.objects.all()
     serializer_class = ProyectoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    #Listar proyectos asociados al usuario autenticado
     def get_queryset(self):
         return self.queryset.filter(usuario=self.request.user)
+    
+    # 🔸 Vista personalizada para obtener un proyecto con todos sus participantes
+    @action(detail=True, methods=['get'], url_path='con-participaciones')
+    def con_participaciones(self, request, pk=None):
+        proyecto = self.get_object()
+        serializer = ProyectoConParticipacionSerializer(proyecto)
+        return Response(serializer.data)
 
     #Al crear un proyecto, el usuario creador pasa a ser PMO, y se crean dos user inactivos Scrum Master y Developer
     def perform_create(self, serializer):
@@ -103,11 +116,19 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             }
         })
 
-#Invitar colaboradores a un proyecto a través de correo
 class InvitarColaboradorView(APIView):
-    
-    #Valida los datos de entrada, los cuales deben incluir correo del colaborador a invitar y el id del proyecto
     def post(self, request, *args, **kwargs):
+        # 🔐 Autenticación manual desde token
+        jwt_authenticator = JWTAuthentication()
+        user_auth_tuple = jwt_authenticator.authenticate(request)
+
+        if user_auth_tuple is None:
+            return Response({"error": "No autenticado. Token inválido o no proporcionado."}, status=401)
+
+        usuario_jwt, _ = user_auth_tuple
+        usuario_que_invita = Usuario.objects.get(id=usuario_jwt.id)
+
+        # ✅ Validar entrada
         serializer = InvitacionColaboradorSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -115,79 +136,130 @@ class InvitarColaboradorView(APIView):
         proyecto_id = serializer.validated_data["proyecto_id"]
         rol_id = serializer.validated_data["rol_id"]
 
-        #Se busca el proyecto en la base de datos, si no existe retorna error 404
+        # 🧾 Buscar proyecto
         try:
-            proyecto = Proyecto.objects.get(id_proyecto=proyecto_id) 
+            proyecto = Proyecto.objects.get(id_proyecto=proyecto_id)
         except Proyecto.DoesNotExist:
             return Response({"error": "Proyecto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-        #Se busca al usuario en la base de datos, si no existe se crea como inactivo (sin contraseña), y se guarda en tabla Usuario
+        # 🧑‍💻 Buscar o crear usuario invitado
         usuario, creado = Usuario.objects.get_or_create(email=email)
-
         if creado:
             usuario.is_active = False
             usuario.set_unusable_password()
             usuario.save()
 
-        # 🔐 Validación y asignación del rol
+        # 🔐 Validar rol
         try:
-            rol_asignado = Rol.objects.get(id_rol=serializer.validated_data["rol_id"])
+            rol_asignado = Rol.objects.get(id_rol=rol_id)
         except Rol.DoesNotExist:
             return Response({"error": "Rol no válido."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 🧾 Crear la participación con estado "inactivo", y se guarda en el modelo Participación
-        participacion, creada = Participacion.objects.get_or_create(
-            id_usuario=usuario,
-            id_proyecto=proyecto,
-            defaults={
-            "estado_participacion": "inactivo",
-            "id_rol": rol_asignado
-            }
-        )
+        # 🔄 Validación específica para Scrum Master
+        if rol_asignado.nombre_rol.lower() == 'scrum_master':
+            sm_existente = Participacion.objects.filter(
+                id_proyecto=proyecto,
+                id_rol=rol_asignado,
+                id_usuario__isnull=False
+            ).exists()
+            if sm_existente:
+                return Response({
+                    "error": "Ya existe un Scrum Master en este proyecto. Solo puede haber uno."
+                }, status=status.HTTP_400_BAD_REQUEST)
 
-        # 🎟️ Generar el token para completar el registro
+        # ✅ Validar si el usuario ya participa en el proyecto (con cualquier rol)
+        if Participacion.objects.filter(id_usuario=usuario, id_proyecto=proyecto).exists():
+            return Response({
+                "error": f"El usuario {email} ya está participando en este proyecto como un {rol_asignado}"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Buscar si existe un slot libre (sin usuario asignado)
+        participacion_existente = Participacion.objects.filter(
+            id_usuario=None,
+            id_proyecto=proyecto,
+            id_rol=rol_asignado
+        ).first()
+
+        if participacion_existente:
+            # Reutilizar slot
+            participacion_existente.id_usuario = usuario
+            participacion_existente.invitado_por = usuario_que_invita
+            participacion_existente.estado_participacion = "inactivo"
+            participacion_existente.save()
+            participacion = participacion_existente
+        else:
+            # Crear nueva participación
+            participacion = Participacion.objects.create(
+                id_usuario=usuario,
+                id_proyecto=proyecto,
+                id_rol=rol_asignado,
+                estado_participacion="inactivo",
+                invitado_por=usuario_que_invita
+            )
+
+        # 🔗 Token y URL
         token = default_token_generator.make_token(usuario)
         url = request.build_absolute_uri(
             reverse("completar-registro") + f"?uid={usuario.id}&token={token}"
-        )           
+        )
 
-        # 📬 Enviar el correo de invitación
+        # 📬 Enviar correo
+        mensaje_email = f"""
+🥳 ¡Felicidades!
+
+Has sido invitado a colaborar en el desarrollo del proyecto de software titulado *{proyecto.nombre}*, con el rol de **{rol_asignado.nombre_rol.upper()}**.
+Esta invitación ha sido enviada por *{usuario_que_invita}*
+
+🔐 Para completar tu registro y activar tu cuenta, haz clic en el siguiente enlace:
+
+👉 {url}
+
+🧾 Una vez actives tu cuenta podrás acceder a todas las funcionalidades del proyecto.
+
+Si no esperabas esta invitación, puedes ignorar este mensaje.
+
+Saludos,
+El equipo de gestión de proyectos de CollabApp 🚀
+        """
+
         send_mail(
-            subject="Invitación a colaborar en un proyecto",
-            message=f"Has sido invitado a colaborar por tu noviecito. Completa tu registro aquí: {url}",
+            subject="🚀 Invitación a colaborar en un proyecto",
+            message=mensaje_email,
             from_email="admin@miapp.com",
             recipient_list=[email],
             fail_silently=False,
         )
 
-        # ✅ Respuesta adaptada según si se creó la participación o no
-        mensaje = "Participación creada correctamente." if creada else "El usuario ya había sido invitado a este proyecto."
         return Response({
-            "mensaje": mensaje,
-            "usuario": {
-            "id": usuario.id,
-            "email": usuario.email,
-            "estado": "activo" if usuario.is_active else "inactivo"
-            },
+        "mensaje": "Participación creada correctamente.",
+        "usuario": {
+        "id": usuario.id,
+        "email": usuario.email,
+        "estado": "activo" if usuario.is_active else "inactivo"
+        },
 
-            "proyecto": {
-            "id": proyecto.id_proyecto,
-            "nombre": proyecto.nombre
-            },
+        "proyecto": {
+        "id": proyecto.id_proyecto,
+        "nombre": proyecto.nombre
+        },
 
-            "rol_asignado": {
-            "id_rol": rol_asignado.id_rol,
-            "nombre_rol": rol_asignado.nombre_rol
-            },
+        "rol_asignado": {
+        "id_rol": rol_asignado.id_rol,
+        "nombre_rol": rol_asignado.nombre_rol
+        },
 
-            "participacion": {
-            "estado_participacion": Participacion.estado_participacion,
-            "rol_id": Participacion.id_rol
-            },
-            "participacion_existente": not creada,
-            "url_registro": url  
-            }, status=status.HTTP_200_OK)
+        "participacion": {
+        "estado_participacion": participacion.estado_participacion,
+        "rol_id": participacion.id_rol.id_rol
+        },
 
+        "invitado_por": {
+        "id": usuario_que_invita.id,
+        "email": usuario_que_invita.email,
+        "nombre_completo": usuario_que_invita.nombre_completo
+        },
+        "url_registro": url
+    }, status=status.HTTP_200_OK)
 
 #Cambiar el rol de un participante en un proyecto
 class CambiarRolParticipanteView(APIView):
@@ -231,6 +303,7 @@ class CambiarRolParticipanteView(APIView):
     
  
 #Prueba formulario básico de registro por invitación con método Post
+@csrf_exempt
 def completar_registro_view(request):
     uid = request.GET.get("uid")
     token = request.GET.get("token")
@@ -252,6 +325,9 @@ def completar_registro_view(request):
         user.is_active = True
         user.password = make_password(password)
         user.save()
+
+        # ✅ Activar la participación asociada si estaba en estado "inactivo"
+        Participacion.objects.filter(id_usuario=user, estado_participacion="inactivo").update(estado_participacion="activo")
 
         return HttpResponse("¡Tu cuenta ha sido activada! Ya puedes iniciar sesión.")
 

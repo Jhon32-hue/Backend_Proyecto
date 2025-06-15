@@ -10,8 +10,6 @@ from usuarios.views.usuario_view import (
     ConfirmarCodigoRecuperacionView,
 )
 from usuarios.views.rol_view import RolViewSet
-from proyectos.views.proyecto_view import (),
-
 urlpatterns = [
     # Autenticación (login)
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),

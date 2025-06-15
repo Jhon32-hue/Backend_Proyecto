@@ -7,10 +7,14 @@ from proyectos.views.participacion_view import ParticipacionProyectoViewSet
 router = DefaultRouter()
 router.register(r'proyectos', ProyectoViewSet, basename='proyecto')
 
+# Las acciones personalizadas se accederán mediante:
+# /proyectos/{pk}/con-participaciones/
+# /proyectos/estadisticas/
+
 urlpatterns = [
-    path('proyectos/', include(router.urls)), #Crear proyecto
-    path('proyectos/invitar/', InvitarColaboradorView.as_view(), name='invitar-colaborador'), #Invitar colaboradores
-    path('proyectos/cambiar-rol/', CambiarRolParticipanteView.as_view(), name='cambiar-rol'), #Cambiar roles
-    path("completar-registro/", completar_registro_view, name="completar-registro"),
-    path('proyectos/participacion/', ParticipacionProyectoViewSet.as_view({'get': 'list'}), name='ver-participacion'), #Lista proyectos particularmente cada proyecto asociado
+    path('', include(router.urls)),
+    path('invitar/', InvitarColaboradorView.as_view(), name='invitar-colaborador'),
+    path('cambiar-rol/', CambiarRolParticipanteView.as_view(), name='cambiar-rol'),
+    path('completar-registro/', completar_registro_view, name='completar-registro'),
+    path('participacion/', ParticipacionProyectoViewSet.as_view({'get': 'list'}), name='ver-participacion'),
 ]

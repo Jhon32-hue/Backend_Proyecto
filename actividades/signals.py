@@ -102,6 +102,8 @@ def historial_eliminar_hu(sender, instance, **kwargs):
         
 ### 🔸 SECCIÓN: Cambio de Rol en Participación
 @receiver(pre_save, sender=Participacion)
+#La función se ejecuta antes de que Django guarde la participación (pre-save)
+# Esto busca esa insatncia en BD y guarda el id_rol. El atributo es temporal y existe mientras se ejecuta la petición
 def guardar_rol_anterior(sender, instance, **kwargs):
     if instance.pk:
         try:
@@ -111,6 +113,8 @@ def guardar_rol_anterior(sender, instance, **kwargs):
             instance._rol_anterior = None
 
 @receiver(post_save, sender=Participacion)
+#La función se ejecuta después de que Django guarda la participación (pre-save)
+# Verifica que no sea una creación nueva (not created), solo se aplica a actualizaciones. Si son diferentes, registra en el historial que el rol se cambió
 def historial_cambio_rol(sender, instance, created, **kwargs):
     if not created and hasattr(instance, '_rol_anterior'):
         rol_anterior = instance._rol_anterior
