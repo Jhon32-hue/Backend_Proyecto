@@ -33,7 +33,7 @@ urlpatterns = [
     path('roles/', RolViewSet.as_view({'get': 'list'}), name='ver_roles'),
 
     #Recuperar contraseña
-    path('recuperar-contraseña', EnviarCodigoRecuperacionView.as_view(), name='password_reset'),
+    path('recuperar-contraseña/', EnviarCodigoRecuperacionView.as_view(), name='password_reset'),
 
     #Confirmar código_recuperación
     path('confirmar-contraseña/', ConfirmarCodigoRecuperacionView.as_view(), name='confirmar_codigo'),

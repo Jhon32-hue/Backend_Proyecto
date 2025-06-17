@@ -12,8 +12,6 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-
-
 #Importaciones internas de los módulos
 from proyectos.models.proyecto import Proyecto
 from proyectos.models.participacion import Participacion
