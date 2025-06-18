@@ -269,7 +269,7 @@ El equipo de gestión de proyectos de CollabApp 🚀
         send_mail(
             subject="🚀 Invitación a colaborar en un proyecto",
             message=mensaje_email,
-            from_email="admin@miapp.com",
+            from_email="collabappdjango@gmail.com",
             recipient_list=[email],
             fail_silently=False,
         )
