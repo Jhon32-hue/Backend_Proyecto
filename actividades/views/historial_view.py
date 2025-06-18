@@ -39,12 +39,24 @@ class Historial_Actividad_ListView(APIView):
 
             historial = historial.filter(proyecto_id=proyecto_id_int)
 
-        if tarea_id:
-            historial = historial.filter(tarea_id=tarea_id)
-        if hu_id:
-            historial = historial.filter(historia_usuario_id=hu_id)
-        if participacion_id:
-            historial = historial.filter(participacion_id=participacion_id)
 
-        serializer = Historial_Actividad_Serializer(historial.order_by('-fecha_hora'), many=True)
-        return Response(serializer.data)
+        if tarea_id:
+            try:
+                tarea_id = int(tarea_id)
+                historial = historial.filter(tarea_id=tarea_id)
+            except (ValueError, TypeError):
+                return Response({'detail': 'ID de tarea inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if hu_id:
+            try:
+                hu_id = int(hu_id)
+                historial = historial.filter(historia_usuario_id=hu_id)
+            except (ValueError, TypeError):
+                return Response({'detail': 'ID de HU inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if participacion_id:
+            try:
+                participacion_id = int(participacion_id)
+                historial = historial.filter(participacion_id=participacion_id)
+            except (ValueError, TypeError):
+                return Response({'detail': 'ID de participación inválido.'}, status=status.HTTP_400_BAD_REQUEST)

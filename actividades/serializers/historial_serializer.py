@@ -6,7 +6,7 @@ class Historial_Actividad_Serializer(serializers.ModelSerializer):
     nombre_proyecto = serializers.CharField(source='proyecto.nombre', read_only=True)
     nombre_tarea = serializers.CharField(source='tarea.nombre', read_only=True, default=None)
     rol_participacion = serializers.CharField(source='participacion.id_rol.nombre', read_only=True, default=None)
-    nombre_hu = serializers.StringRelatedField(source='historia_usuario.titulo', read_only=True)
+    nombre_hu = serializers.CharField(source='historia_usuario.titulo', read_only=True, default=None)
 
     class Meta:
         model = Historial_Actividad

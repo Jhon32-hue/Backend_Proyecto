@@ -1,67 +1,82 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from proyectos.views.hu_view import HistoriaUsuarioViewSet
-
 from proyectos.views.proyecto_view import (
     ProyectoViewSet,
     InvitarColaboradorView,
     CambiarRolParticipanteView,
     completar_registro_view
 )
+from proyectos.views.hu_view import HistoriaUsuarioViewSet, SolicitarCierreHUView
+from proyectos.views.tarea_view import TareaViewSet
 from proyectos.views.participacion_view import ParticipacionProyectoViewSet
 
-# ✅ Prefijo 'gestion' evita que las rutas se pisen con las personalizadas
 router = DefaultRouter()
 router.register(r'gestion', ProyectoViewSet, basename='proyecto')
 router.register(r'historia_usuario', HistoriaUsuarioViewSet, basename='historias')
-
+router.register(r'tareas', TareaViewSet, basename='tareas')
 
 urlpatterns = [
-    # ✅ CRUD de proyectos + acciones personalizadas como /con-participaciones/estadisticas/
     path('', include(router.urls)),
 
-    # ✅ Rutas personalizadas separadas
+    # Rutas personalizadas
     path('invitar-colaborador/', InvitarColaboradorView.as_view(), name='invitar-colaborador'),
     path('cambiar-rol/', CambiarRolParticipanteView.as_view(), name='cambiar-rol'),
     path('completar-registro/', completar_registro_view, name='completar-registro'),
-
-    # ✅ Vista personalizada para listar participaciones de usuario
     path('participacion/', ParticipacionProyectoViewSet.as_view({'get': 'list'}), name='ver-participacion'),
 
-
-
+    # 🔔 Ruta adicional para solicitar cierre de HU
+    path(
+        'historia_usuario/<int:pk>/solicitar-cierre/',
+        SolicitarCierreHUView.as_view(),
+        name='solicitar-cierre-hu'
+    ),
 ]
 
-'''Rutas generadas automáticamente por DefaultRouter para proyectos/gestion:
-
-GET /api/proyectos/gestion/ — listar proyectos
-
-POST /api/proyectos/gestion/ — crear proyecto
-
-GET /api/proyectos/gestion/<pk>/ — ver detalle
-
-PUT /api/proyectos/gestion/<pk>/ — actualizar completo
-
-PATCH /api/proyectos/gestion/<pk>/ — actualizar parcial
-
-DELETE /api/proyectos/gestion/<pk>/ — eliminar
-
-GET /api/proyectos/gestion/<pk>/con-participaciones/
+#25 rutas
 
 '''
+✅ 1. RUTAS CRUD GENERADAS POR DefaultRouter
+📁 /api/proyectos/gestion/ – Proyectos
+Método	Endpoint	Descripción
+GET	/api/proyectos/gestion/	Listar proyectos del usuario
+POST	/api/proyectos/gestion/	Crear un nuevo proyecto
+GET	/api/proyectos/gestion/<id>/	Ver detalles de un proyecto
+PUT	/api/proyectos/gestion/<id>/	Actualizar completamente un proyecto
+PATCH	/api/proyectos/gestion/<id>/	Actualizar parcialmente un proyecto
+DELETE	/api/proyectos/gestion/<id>/	Eliminar un proyecto
+GET	/api/proyectos/gestion/<id>/con-participaciones/	Ver proyecto + usuarios asociados (ruta personalizada del ViewSet)
 
-'''Rutas generadas automáticamente por DefaultRouter para proyectos/historia_usuario:
+📁 /api/proyectos/historia_usuario/ – Historias de Usuario
+Método	Endpoint	Descripción
+GET	/api/proyectos/historia_usuario/	Listar historias de usuario del usuario autenticado
+POST	/api/proyectos/historia_usuario/	Crear una historia de usuario (solo Scrum Master)
+GET	/api/proyectos/historia_usuario/<id>/	Ver detalle de una historia
+PUT	/api/proyectos/historia_usuario/<id>/	Actualizar completamente una historia
+PATCH	/api/proyectos/historia_usuario/<id>/	Actualizar parcialmente una historia
+DELETE	/api/proyectos/historia_usuario/<id>/	Eliminar una historia
 
-GET /api/proyectos/historia_usuario/ → listar historias
+📁 /api/proyectos/tareas/ – Tareas
+Método	Endpoint	Descripción
+GET	/api/proyectos/tareas/	Listar tareas asignadas al usuario
+POST	/api/proyectos/tareas/	Crear una nueva tarea (solo si el usuario es asignado a la HU)
+GET	/api/proyectos/tareas/<id>/	Ver detalle de una tarea
+PUT	/api/proyectos/tareas/<id>/	Actualizar completamente una tarea propia
+PATCH	/api/proyectos/tareas/<id>/	Actualizar parcialmente una tarea propia
+DELETE	/api/proyectos/tareas/<id>/	Eliminar una tarea (si implementado)
 
-POST /api/proyectos/historia_usuario/ → crear historia
+✅ 2. RUTAS PERSONALIZADAS ADICIONALES
+📌 Historias
+Método	Endpoint	Descripción
+POST	/api/proyectos/historia_usuario/<id>/solicitar-cierre/	El desarrollador solicita cierre de HU (si todas las tareas están hechas)
 
-GET /api/proyectos/historia_usuario/<id>/ → ver detalle
+📌 Participación
+Método	Endpoint	Descripción
+GET	/api/proyectos/participacion/	Listar los proyectos en los que participa el usuario autenticado
 
-PUT /api/proyectos/historia_usuario/<id>/ → actualizar
-
-PATCH /api/proyectos/historia_usuario/<id>/ → actualizar parcial
-
-DELETE /api/proyectos/historia_usuario/<id>/ → eliminar
+📌 Gestión de colaboradores
+Método	Endpoint	Descripción
+POST	/api/proyectos/invitar-colaborador/	Invitar a un usuario a un proyecto (mediante email)
+POST	/api/proyectos/cambiar-rol/	Cambiar el rol de un participante (por un Scrum Master)
+POST	/api/proyectos/completar-registro/	Completar el registro de participación de un colaborador invitado
 
 '''

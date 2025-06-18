@@ -39,7 +39,7 @@ class Historial_Actividad(models.Model):
     historia_usuario =models.ForeignKey(
         Historia_usuario,
         on_delete=models.CASCADE,
-        related_name='historia_usuario',
+        related_name='historia_hu',
         null=True, blank=True
     )
 
@@ -49,6 +49,9 @@ class Historial_Actividad(models.Model):
 
     #Método para mostrar como se ve el objeto cuando se imprime
     def __str__(self):
-        rol = self.participacion.rol if self.participacion else "Sin rol"
+        usuario = self.usuario.nombre_completo if self.usuario else "Usuario desconocido"
+        rol = getattr(self.participacion.id_rol, 'nombre', "Sin rol") if self.participacion else "Sin rol"
         proyecto = self.proyecto.nombre if self.proyecto else "Proyecto desconocido"
-        return f'{self.usuario} ({rol}) hizo "{self.accion_realizada}" en el proyecto "{proyecto}" el {self.fecha_hora.strftime("%Y-%m-%d %H:%M")}'
+        fecha = self.fecha_hora.strftime("%Y-%m-%d %H:%M") if self.fecha_hora else "sin fecha"
+        return f'{usuario} ({rol}) hizo "{self.accion_realizada}" en el proyecto "{proyecto}" el {fecha}'
+

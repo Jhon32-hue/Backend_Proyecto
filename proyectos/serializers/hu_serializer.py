@@ -8,7 +8,6 @@ Se encarga de la validación de datos y creación de historias de usuario.
 from rest_framework import serializers
 from proyectos.models.hu import Historia_usuario
 from proyectos.models.participacion import Participacion
-from django.core.mail import send_mail
 
 class HistoriaUsuarioSerializer(serializers.ModelSerializer):
     id_participacion = serializers.IntegerField(write_only=True, required=False, allow_null=True)
@@ -54,7 +53,6 @@ class HistoriaUsuarioSerializer(serializers.ModelSerializer):
             try:
                 participacion = Participacion.objects.get(id=id_participacion)
                 historia.participacion_asignada = participacion
-                historia.estado = 'en_proceso'
                 historia.save()
             except Participacion.DoesNotExist:
                 raise serializers.ValidationError("La participación asignada no existe.")

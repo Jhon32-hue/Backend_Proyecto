@@ -1,5 +1,5 @@
 # Imports comunes para que funcione la señal
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from proyectos.models.proyecto import Proyecto
 from proyectos.models.tarea import Tarea
@@ -8,8 +8,6 @@ from actividades.models.historial import Historial_Actividad
 from proyectos.models.participacion import Participacion
 from crum import get_current_user
 from usuarios.models.usuario import Usuario
-from django.db.models.signals import post_save, post_delete, pre_save
-
 
 # Función para obtener el usuario responsable
 def obtener_usuario_valido():
@@ -18,8 +16,8 @@ def obtener_usuario_valido():
 
     if usuario is None or usuario.is_anonymous:
         print("⚠️ Usuario no autenticado. No se registrará historial.")
-        return None  # No usar un usuario de fallback
-    
+        return None
+
     try:
         usuario = Usuario.objects.get(id=usuario.id)
         print("Usuario válido:", usuario)
@@ -50,19 +48,34 @@ def historial_eliminar_proyecto(sender, instance, **kwargs):
             proyecto=None,
             accion_realizada=f'Proyecto Eliminado: {instance.nombre}',
         )
-### 🔸 SECCIÓN: Tarea
+
+### 🔸 SECCIÓN: Pre-save Tarea para detectar cambio de estado
+@receiver(pre_save, sender=Tarea)
+def detectar_cambio_estado_tarea(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instancia_anterior = Tarea.objects.get(pk=instance.pk)
+            instance._estado_anterior = instancia_anterior.estado_tarea
+        except Tarea.DoesNotExist:
+            instance._estado_anterior = None
+
 @receiver(post_save, sender=Tarea)
 def historial_tarea(sender, instance, created, **kwargs):
     usuario = obtener_usuario_valido()
     if usuario:
-        accion = 'Creada' if created else 'Actualizada'
+        if created:
+            accion = f'Tarea Creada: {instance.titulo}'
+        elif hasattr(instance, '_estado_anterior') and instance._estado_anterior != instance.estado_tarea:
+            accion = f'Estado de Tarea cambiado: {instance._estado_anterior} → {instance.estado_tarea}'
+        else:
+            accion = f'Tarea Actualizada: {instance.titulo}'
+
         Historial_Actividad.objects.create(
             usuario=usuario,
             tarea=instance,
-            proyecto=instance.proyecto,
-            accion_realizada=f'Tarea {accion}: {instance.nombre}',
+            proyecto=instance.id_hu.proyecto,
+            accion_realizada=accion,
         )
-        
 
 @receiver(post_delete, sender=Tarea)
 def historial_eliminar_tarea(sender, instance, **kwargs):
@@ -71,23 +84,40 @@ def historial_eliminar_tarea(sender, instance, **kwargs):
         Historial_Actividad.objects.create(
             usuario=usuario,
             tarea=instance,
-            proyecto=instance.proyecto,
-            accion_realizada=f'Tarea Eliminada: {instance.nombre}',
+            proyecto=instance.id_hu.proyecto,
+            accion_realizada=f'Tarea Eliminada: {instance.titulo}',
         )
-        
-### 🔸 SECCIÓN: Historia de Usuario
+
+### 🔸 SECCIÓN: Pre-save HU para detectar cambio de estado o solicitud cierre
+@receiver(pre_save, sender=Historia_usuario)
+def detectar_cambio_estado_hu(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            instancia_anterior = Historia_usuario.objects.get(pk=instance.pk)
+            instance._estado_anterior = instancia_anterior.estado
+        except Historia_usuario.DoesNotExist:
+            instance._estado_anterior = None
+
 @receiver(post_save, sender=Historia_usuario)
 def historial_hu(sender, instance, created, **kwargs):
     usuario = obtener_usuario_valido()
     if usuario:
-        accion = 'Creada' if created else 'Actualizada'
+        if created:
+            accion = f'HU Creada: {instance.titulo}'
+        elif hasattr(instance, '_estado_anterior') and instance._estado_anterior != instance.estado:
+            if instance.estado == 'Por aprobar':
+                accion = f'Se solicitó cierre de la HU: {instance.titulo}'
+            else:
+                accion = f'Estado de HU cambiado: {instance._estado_anterior} → {instance.estado}'
+        else:
+            accion = f'HU Actualizada: {instance.titulo}'
+
         Historial_Actividad.objects.create(
             usuario=usuario,
             historia_usuario=instance,
             proyecto=instance.proyecto,
-            accion_realizada=f'HU {accion}: {instance.titulo}',
+            accion_realizada=accion,
         )
-        
 
 @receiver(post_delete, sender=Historia_usuario)
 def historial_eliminar_hu(sender, instance, **kwargs):
@@ -99,11 +129,9 @@ def historial_eliminar_hu(sender, instance, **kwargs):
             proyecto=instance.proyecto,
             accion_realizada=f'HU Eliminada: {instance.titulo}',
         )
-        
+
 ### 🔸 SECCIÓN: Cambio de Rol en Participación
 @receiver(pre_save, sender=Participacion)
-#La función se ejecuta antes de que Django guarde la participación (pre-save)
-# Esto busca esa insatncia en BD y guarda el id_rol. El atributo es temporal y existe mientras se ejecuta la petición
 def guardar_rol_anterior(sender, instance, **kwargs):
     if instance.pk:
         try:
@@ -113,8 +141,6 @@ def guardar_rol_anterior(sender, instance, **kwargs):
             instance._rol_anterior = None
 
 @receiver(post_save, sender=Participacion)
-#La función se ejecuta después de que Django guarda la participación (pre-save)
-# Verifica que no sea una creación nueva (not created), solo se aplica a actualizaciones. Si son diferentes, registra en el historial que el rol se cambió
 def historial_cambio_rol(sender, instance, created, **kwargs):
     if not created and hasattr(instance, '_rol_anterior'):
         rol_anterior = instance._rol_anterior
