@@ -3,7 +3,8 @@ from django.utils import timezone
 from usuarios.models.usuario import Usuario
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 
 #Registro_Usuario
 class Usuario_Serializer (serializers.ModelSerializer):
@@ -79,10 +80,16 @@ class CustomRegisterSerializer(RegisterSerializer):
             'password2': self.validated_data.get('password2', ''),
         }
 
+#Cambiar contraseña
 class EnviarCodigoRecuperacionSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
+#Validación de cambio de contraseña
 class ConfirmarCodigoRecuperacionSerializer(serializers.Serializer):
     email = serializers.EmailField()
     codigo = serializers.CharField(max_length=6)
     password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate_password(self, value):
+        validate_password(value)  # Esto usa validadores de Django como mínimo 8, no común, etc.
+        return value

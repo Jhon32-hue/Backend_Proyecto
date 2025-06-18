@@ -102,13 +102,14 @@ class ConfirmarCodigoRecuperacionView(APIView):
             if user.codigo_recuperacion != codigo:
                 return Response({"detail": "Código incorrecto."}, status=400)
 
-            if user.codigo_expira < timezone.now():
+            if not user.codigo_esta_vigente():
                 return Response({"detail": "Código expirado."}, status=400)
 
             user.set_password(nueva_password)
             user.codigo_recuperacion = None
-            user.codigo_expira = None
+            user.codigo_generado_en = None
             user.save()
 
             return Response({"detail": "Contraseña actualizada con éxito."})
+        
         return Response(serializer.errors, status=400)

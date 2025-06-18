@@ -4,13 +4,18 @@ from django.contrib.auth.hashers import make_password
 from rest_framework.views import APIView
 from rest_framework import viewsets, permissions, serializers, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from django.urls import reverse
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from proyectos.serializers.proyecto_serializer import ParticipacionSerializer
+from rest_framework.exceptions import ValidationError
+
+
 
 #Importaciones internas de los módulos
 from proyectos.models.proyecto import Proyecto
@@ -35,13 +40,18 @@ class ProyectoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return self.queryset.filter(usuario=self.request.user)
+        return Proyecto.objects.all()
     
     # 🔸 Vista personalizada para obtener un proyecto con todos sus participantes
     @action(detail=True, methods=['get'], url_path='con-participaciones')
     def con_participaciones(self, request, pk=None):
-        proyecto = self.get_object()
-        serializer = ProyectoConParticipacionSerializer(proyecto)
+        try:
+            proyecto = Proyecto.objects.get(pk=pk)
+        except Proyecto.DoesNotExist:
+            return Response({'detail': 'No Proyecto matches the given query.'}, status=status.HTTP_404_NOT_FOUND)
+
+        participaciones = Participacion.objects.filter(id_proyecto=proyecto)
+        serializer = ParticipacionSerializer(participaciones, many=True)
         return Response(serializer.data)
 
     #Al crear un proyecto, el usuario creador pasa a ser PMO, y se crean dos user inactivos Scrum Master y Developer
@@ -74,33 +84,68 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             estado_participacion='inactivo'
         )
 
-    #Actualizacion de proyecto. Se verifica que haya al menos un SM y al menos un DV para cerrar el proyecto, de lo contrario error
     def perform_update(self, serializer):
         proyecto_actualizado = serializer.save()
 
-        if proyecto_actualizado.estado_proyecto == "cerrado":
-            tiene_scrum_master = Participacion.objects.filter(
-                id_proyecto=proyecto_actualizado,
-                id_rol__nombre_rol="Scrum Master",
-                id_usuario__isnull=False
-            ).exists()
+        print("Validando roles para cerrar proyecto...")
+        print("Estado:", proyecto_actualizado.estado_proyecto)
 
-            tiene_developer = Participacion.objects.filter(
-                id_proyecto=proyecto_actualizado,
-                id_rol__nombre_rol="Developer",
-                id_usuario__isnull=False
-            ).exists()
+        # Si no se está cerrando (finalizando), no se valida nada especial
+        if proyecto_actualizado.estado_proyecto != "finalizado":
+            return
 
-            if not (tiene_scrum_master and tiene_developer):
-                raise serializers.ValidationError(
-                    "No puedes cerrar el proyecto sin un Scrum Master y al menos un Developer asignados."
-                )
+        usuario_actual = self.request.user
+
+        # Validar que el usuario participa en el proyecto
+        try:
+            participacion_usuario = Participacion.objects.get(
+                id_usuario=usuario_actual,
+                id_proyecto=proyecto_actualizado,
+                estado_participacion="activo"
+            )
+        except Participacion.DoesNotExist:
+            raise ValidationError("No puedes cerrar el proyecto si no participas en él.")
+
+        # Validar que su rol sea PMO
+        if participacion_usuario.id_rol.nombre_rol != "PMO":
+            raise ValidationError("Solo el Project Management (PMO) puede cerrar el proyecto.")
+
+        # Validar existencia de Scrum Master
+        tiene_scrum_master = Participacion.objects.filter(
+            id_proyecto=proyecto_actualizado,
+            id_rol__nombre_rol="Scrum Master",
+            id_usuario__isnull=False,
+            estado_participacion="activo"
+        ).exists()
+
+        # Validar existencia de Developer
+        tiene_developer = Participacion.objects.filter(
+            id_proyecto=proyecto_actualizado,
+            id_rol__nombre_rol="Developer",
+            id_usuario__isnull=False,
+            estado_participacion="activo"
+        ).exists()
+
+        if not (tiene_scrum_master and tiene_developer):
+            raise ValidationError(
+                "No puedes cerrar el proyecto sin un Scrum Master y al menos un Developer activos asignados."
+            )
 
     #Obtener estadisticas de los proyectos asociados al usuario
     @action(detail=False, methods=['get'], url_path='estadisticas')
     def estadisticas(self, request):
-        queryset = self.get_queryset()
+        user = request.user
+
+        proyectos_ids = Participacion.objects.filter(id_usuario=user).values_list('id_proyecto', flat=True).distinct()
+        queryset = Proyecto.objects.filter(id_proyecto__in=proyectos_ids)
+
         ultimo = queryset.last()
+
+        # Obtener rol si hay último proyecto
+        rol = None
+        if ultimo:
+            participacion = Participacion.objects.filter(id_usuario=user, id_proyecto=ultimo).first()
+            rol = participacion.id_rol.nombre_rol if participacion else None
 
         return Response({
             'total_proyectos': queryset.count(),
@@ -110,7 +155,8 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             'ultimo_proyecto': {
                 'id': ultimo.id_proyecto if ultimo else None,
                 'nombre': ultimo.nombre if ultimo else None,
-                'estado': ultimo.estado_proyecto if ultimo else None
+                'estado': ultimo.estado_proyecto if ultimo else None,
+                'mi_rol': rol
             }
         })
 
@@ -259,47 +305,67 @@ El equipo de gestión de proyectos de CollabApp 🚀
         "url_registro": url
     }, status=status.HTTP_200_OK)
 
-#Cambiar el rol de un participante en un proyecto
+#Cambiar rol de un participante: solo puede hacerlo un PMO
 class CambiarRolParticipanteView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         serializer = CambiarRolSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        participacion_id = serializer.validated_data["participacion_id"]
-        nuevo_rol_id = serializer.validated_data["nuevo_rol_id"]
+        id_usuario = serializer.validated_data["id_usuario"]
+        id_proyecto = serializer.validated_data["id_proyecto"]
+        nuevo_rol_clave = serializer.validated_data["nuevo_rol"]
 
         try:
-            participacion = Participacion.objects.get(id_participacion=participacion_id)
-            nuevo_rol = Rol.objects.get(id=nuevo_rol_id)
-            proyecto = participacion.id_proyecto
-        except (Participacion.DoesNotExist, Rol.DoesNotExist):
-            return Response({"error": "Participación o rol no válido."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        #Validar que el estado de la participación sea 'activo'
-        if participacion.estado_participacion != "activo":
-            return Response(
-                {"error": "Solo se puede cambiar el rol de una participación que se encuentre activa en este proyecto"}
+            participacion = Participacion.objects.get(
+                id_usuario=id_usuario,
+                id_proyecto=id_proyecto
             )
+        except Participacion.DoesNotExist:
+            return Response({"error": "La participación no existe."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validación: solo un Scrum Master por proyecto
+        try:
+            nuevo_rol = Rol.objects.get(nombre_rol=nuevo_rol_clave)
+        except Rol.DoesNotExist:
+            return Response({"error": "Rol no válido."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Validar que el request.user sea PM del proyecto
+        es_pm = Participacion.objects.filter(
+            id_usuario=request.user,
+            id_proyecto=id_proyecto,
+            id_rol__nombre_rol='project management',
+            estado_participacion='activo'
+        ).exists()
+
+        if not es_pm:
+            return Response({"error": "Solo el Project Manager puede cambiar roles."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if participacion.estado_participacion != "activo":
+            return Response({"error": "Solo se puede cambiar el rol de una participación activa."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         if nuevo_rol.nombre_rol == 'scrum_master':
             ya_hay_scrum_master = Participacion.objects.filter(
-                id_proyecto=proyecto,
+                id_proyecto=id_proyecto,
                 id_rol__nombre_rol='scrum_master'
-            ).exclude(id_participacion=participacion_id).exists()
+            ).exclude(id_participacion=participacion.id_participacion).exists()
 
             if ya_hay_scrum_master:
-                return Response(
-                    {"error": f"Este proyecto '{Proyecto.nombre}'. ya tiene un Scrum Master asignado."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        #Asignar nuevo rol
+                return Response({"error": "Este proyecto ya tiene un Scrum Master asignado."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        rol_anterior = serializer.validated_data["rol_anterior"]
         participacion.id_rol = nuevo_rol
         participacion.save()
 
-        return Response({"mensaje": "Rol actualizado correctamente."}, status=status.HTTP_200_OK)
-    
- 
+        return Response({
+            "mensaje": "Rol actualizado correctamente.",
+            "rol_anterior": rol_anterior,
+            "rol_nuevo": nuevo_rol.nombre_rol
+        }, status=status.HTTP_200_OK)
+
 #Prueba formulario básico de registro por invitación con método Post
 @csrf_exempt
 def completar_registro_view(request):

@@ -9,7 +9,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proyecto
         fields = ['id_proyecto', 'nombre', 'descripcion', 'estado_proyecto', 'usuario']
-        read_only_fields = ['id_proyecto', 'estado_proyecto']
+        read_only_fields = ['id_proyecto']
 
 # 🔹 Serializer para invitar colaboradores a un proyecto
 class InvitacionColaboradorSerializer(serializers.Serializer):
@@ -26,23 +26,54 @@ class InvitacionColaboradorSerializer(serializers.Serializer):
         if not Rol.objects.filter(id_rol=value).exists():
             raise serializers.ValidationError("El rol especificado no existe. Los roles válidos son: 1 (PMO), 2 (Scrum Master), 3 (Developer), 4 (Pendiente)")
         return value
-    
-# 🔹 Serializer para cambiar el rol de un participante en un proyecto
+
+#Cambiar rol de un participante    
 class CambiarRolSerializer(serializers.Serializer):
-    participacion_id = serializers.IntegerField()
-    nuevo_rol_id = serializers.IntegerField()
+    id_usuario = serializers.IntegerField()
+    id_proyecto = serializers.IntegerField()
+    nuevo_rol = serializers.CharField()
+    rol_anterior = serializers.CharField(read_only=True)  # Opcional, si lo quieres incluir
 
     def validate(self, data):
-        participacion_id = data.get("participacion_id")
-        nuevo_rol_id = data.get("nuevo_rol_id")
+        id_usuario = data.get("id_usuario")
+        id_proyecto = data.get("id_proyecto")
+        nuevo_rol = data.get("nuevo_rol")
 
-        if not Participacion.objects.filter(id=participacion_id).exists():
-            raise serializers.ValidationError("La participación no existe.")
+        # Validar existencia de usuario y proyecto
+        if not Usuario.objects.filter(id=id_usuario).exists():
+            raise serializers.ValidationError({"id_usuario": "El usuario no existe."})
 
-        if not Rol.objects.filter(id=nuevo_rol_id).exists():
-            raise serializers.ValidationError("El rol especificado no existe.")
+        if not Proyecto.objects.filter(id_proyecto=id_proyecto).exists():
+            raise serializers.ValidationError({"id_proyecto": "El proyecto no existe."})
+
+        # Validar participación activa
+        try:
+            participacion = Participacion.objects.get(
+                id_usuario=id_usuario,
+                id_proyecto=id_proyecto,
+                estado_participacion="activo"
+            )
+        except Participacion.DoesNotExist:
+            raise serializers.ValidationError("El usuario no participa activamente en este proyecto.")
+
+        # Validar rol válido
+        nombres_validos = Rol.objects.values_list('nombre_rol', flat=True)
+        if nuevo_rol not in nombres_validos:
+            raise serializers.ValidationError({
+                "nuevo_rol": f"Rol no válido. Debe ser uno de: {list(nombres_validos)}"
+            })
+
+        # Validar que el nuevo rol no sea igual al actual
+        if participacion.id_rol.nombre_rol == nuevo_rol:
+            raise serializers.ValidationError({
+                "nuevo_rol": "El nuevo rol no puede ser igual al rol actual."
+            })
+
+        # Agregar el rol anterior como un valor validado (lo puedes usar en la vista)
+        data["rol_anterior"] = participacion.id_rol.nombre_rol
 
         return data
+
 
 # 🔹 Serializer simplificado de usuario (usado dentro de ParticipacionSerializer)
 class UsuarioSimpleSerializer(serializers.ModelSerializer):
@@ -54,7 +85,7 @@ class UsuarioSimpleSerializer(serializers.ModelSerializer):
 class RolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
-        fields = ['id', 'nombre_rol']
+        fields = ['id_rol', 'nombre_rol']
 
 # 🔹 Serializer detallado para mostrar participaciones (nested)
 class ParticipacionSerializer(serializers.ModelSerializer):
@@ -64,7 +95,7 @@ class ParticipacionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Participacion
-        fields = ['id', 'id_usuario', 'id_rol', 'id_proyecto', 'estado_participacion']
+        fields = ['id_participacion', 'id_usuario', 'id_rol', 'id_proyecto', 'estado_participacion']
 
 
 # 🔹 Lista proyectos con participaciones anidadas
@@ -73,4 +104,4 @@ class ProyectoConParticipacionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Proyecto
-        fields = ['id_proyecto', 'nombre', 'descripcion', 'estado_proyecto', 'participaciones']
+        fields = '__all__'
