@@ -10,14 +10,18 @@ from proyectos.models.hu import Historia_usuario
 from proyectos.models.participacion import Participacion
 
 class HistoriaUsuarioSerializer(serializers.ModelSerializer):
-    id_participacion = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    
+    participacion_asignada = serializers.PrimaryKeyRelatedField(
+        queryset=Participacion.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = Historia_usuario
         fields = [
             'id',
             'proyecto',
-            'id_participacion',
+            'participacion_asignada',
             'titulo',
             'descripcion',
             'estado',
@@ -27,34 +31,34 @@ class HistoriaUsuarioSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'estado', 'fecha_cierre']
 
-    def validate(self, data):
+   
+    def validate(self, data):     
         """
         Valida que el usuario actual sea Scrum Master del proyecto especificado.
         Esta restricción aplica solo durante la creación de una historia.
         """
         request = self.context['request']
         user = request.user
-        proyecto = data['proyecto']
 
-        if not Participacion.objects.filter(
-            id_proyecto=proyecto,
-            id_usuario=user,
-            id_rol__nombre_rol="Scrum Master"
-        ).exists():
-            raise serializers.ValidationError("Solo un Scrum Master puede crear historias de usuario para este proyecto.")
+        if request.method == 'POST':
+            proyecto = data.get('proyecto')
+            if not proyecto:
+                raise serializers.ValidationError("El proyecto es requerido.")
 
+            if not Participacion.objects.filter(
+                id_proyecto=proyecto,
+                id_usuario=user,
+                id_rol__nombre_rol="scrum_master"
+            ).exists():
+                raise serializers.ValidationError("Solo un Scrum Master puede crear historias de usuario para este proyecto.")
+
+            if Historia_usuario.objects.filter(
+                proyecto=proyecto,
+                titulo=data.get('titulo'),
+                descripcion=data.get('descripcion'),
+                participacion_asignada=data.get('participacion_asignada')
+            ).exists():
+                raise serializers.ValidationError("Ya existe una historia de usuario con el mismo contenido en este proyecto.")
+
+        # No hacer validaciones especiales si es PATCH (update parcial)
         return data
-
-    def create(self, validated_data):
-        id_participacion = validated_data.pop('id_participacion', None)
-        historia = Historia_usuario.objects.create(**validated_data)
-
-        if id_participacion:
-            try:
-                participacion = Participacion.objects.get(id=id_participacion)
-                historia.participacion_asignada = participacion
-                historia.save()
-            except Participacion.DoesNotExist:
-                raise serializers.ValidationError("La participación asignada no existe.")
-
-        return historia

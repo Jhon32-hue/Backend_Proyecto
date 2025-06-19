@@ -15,8 +15,6 @@ from rest_framework.response import Response
 from proyectos.serializers.proyecto_serializer import ParticipacionSerializer
 from rest_framework.exceptions import ValidationError
 
-
-
 #Importaciones internas de los módulos
 from proyectos.models.proyecto import Proyecto
 from proyectos.models.participacion import Participacion
@@ -59,10 +57,15 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         usuario_actual = Usuario.objects.get(id=self.request.user.id)
         proyecto = serializer.save(usuario=usuario_actual)
 
-        rol_pmo, _ = Rol.objects.get_or_create(nombre_rol='project management')
-        rol_sm, _ = Rol.objects.get_or_create(nombre_rol='scrum_master')
-        rol_dev, _ = Rol.objects.get_or_create(nombre_rol='developer')
+        # Buscar roles ya existentes, lanzar error si no están
+        try:
+            rol_pmo = Rol.objects.get(nombre_rol='project_management')
+            rol_sm = Rol.objects.get(nombre_rol='scrum_master')
+            rol_dev = Rol.objects.get(nombre_rol='developer')
+        except Rol.DoesNotExist as e:
+            raise ValidationError(f"Rol requerido no definido en la base de datos: {str(e)}")
 
+        # Crear participación del creador como Project Manager
         Participacion.objects.create(
             id_usuario=usuario_actual,
             id_proyecto=proyecto,
@@ -70,6 +73,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             estado_participacion='activo'
         )
 
+        # Crear slots vacíos para SM y Dev
         Participacion.objects.create(
             id_usuario=None,
             id_proyecto=proyecto,
@@ -83,7 +87,6 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             id_rol=rol_dev,
             estado_participacion='inactivo'
         )
-
     def perform_update(self, serializer):
         proyecto_actualizado = serializer.save()
 
@@ -107,13 +110,13 @@ class ProyectoViewSet(viewsets.ModelViewSet):
             raise ValidationError("No puedes cerrar el proyecto si no participas en él.")
 
         # Validar que su rol sea PMO
-        if participacion_usuario.id_rol.nombre_rol != "PMO":
+        if participacion_usuario.id_rol.nombre_rol != "project_management":
             raise ValidationError("Solo el Project Management (PMO) puede cerrar el proyecto.")
 
         # Validar existencia de Scrum Master
         tiene_scrum_master = Participacion.objects.filter(
             id_proyecto=proyecto_actualizado,
-            id_rol__nombre_rol="Scrum Master",
+            id_rol__nombre_rol="scrum_master",
             id_usuario__isnull=False,
             estado_participacion="activo"
         ).exists()
@@ -121,7 +124,7 @@ class ProyectoViewSet(viewsets.ModelViewSet):
         # Validar existencia de Developer
         tiene_developer = Participacion.objects.filter(
             id_proyecto=proyecto_actualizado,
-            id_rol__nombre_rol="Developer",
+            id_rol__nombre_rol="developer",
             id_usuario__isnull=False,
             estado_participacion="activo"
         ).exists()
@@ -209,6 +212,19 @@ class InvitarColaboradorView(APIView):
             if sm_existente:
                 return Response({
                     "error": "Ya existe un Scrum Master en este proyecto. Solo puede haber uno."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+
+        # 🔄 Validación específica para Project Management
+        if rol_asignado.nombre_rol.lower() == 'project_management':
+            pm_existente = Participacion.objects.filter(
+                id_proyecto=proyecto,
+                id_rol=rol_asignado,
+                id_usuario__isnull=False
+            ).exists()
+            if pm_existente:
+                return Response({
+                    "error": "Ya existe un Project Management en este proyecto. Solo puede haber uno."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         # ✅ Validar si el usuario ya participa en el proyecto (con cualquier rol)

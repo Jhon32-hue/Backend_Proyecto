@@ -26,19 +26,41 @@ def obtener_usuario_valido():
         print("Usuario no existe en DB")
         return None
 
-### 🔸 SECCIÓN: Proyecto
+
+# 🔄 Guardar estado anterior de forma segura
+@receiver(pre_save, sender=Proyecto)
+def guardar_estado_anterior_proyecto(sender, instance, **kwargs):
+    if instance.pk:
+        try:
+            proyecto_anterior = Proyecto.objects.get(pk=instance.pk)
+            instance._estado_proyecto_anterior = proyecto_anterior.estado_proyecto
+        except Proyecto.DoesNotExist:
+            instance._estado_proyecto_anterior = None
+
+# 📥 Registro en historial según tipo de cambio
 @receiver(post_save, sender=Proyecto)
 def historial_proyecto(sender, instance, created, **kwargs):
     print("🔥 Signal ejecutado para Proyecto")
     usuario = obtener_usuario_valido()
-    if usuario:
-        accion = 'Creado' if created else 'Actualizado'
-        Historial_Actividad.objects.create(
-            usuario=usuario,
-            proyecto=instance,
-            accion_realizada=f'Proyecto {accion}: {instance.nombre}',
-        )
+    if not usuario:
+        return
 
+    # Detectar cambio de estado
+    if created:
+        accion = f'Proyecto Creado: {instance.nombre}'
+    elif hasattr(instance, '_estado_proyecto_anterior') and instance._estado_proyecto_anterior != instance.estado_proyecto:
+        accion = f'Estado de Proyecto cambiado: {instance._estado_proyecto_anterior} → {instance.estado_proyecto}'
+    else:
+        accion = f'Proyecto Actualizado: {instance.nombre}'
+
+    # Crear entrada en historial
+    Historial_Actividad.objects.create(
+        usuario=usuario,
+        proyecto=instance,
+        accion_realizada=accion,
+    )
+
+# 🗑 Registro al eliminar
 @receiver(post_delete, sender=Proyecto)
 def historial_eliminar_proyecto(sender, instance, **kwargs):
     usuario = obtener_usuario_valido()

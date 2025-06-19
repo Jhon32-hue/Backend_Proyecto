@@ -33,13 +33,14 @@ def asignar_estado_en_proceso_si_asignada(sender, instance, created, **kwargs):
 # 📩 Notifica a todos los Scrum Masters del proyecto cuando un desarrollador solicita cerrar una HU
 @receiver(solicitud_cierre_hu)
 def notificar_scrum_master_solicitud_cierre(sender, historia, solicitante, **kwargs):
+    print("🔔 Señal recibida para solicitud de cierre")
+    
     """
-    Notifica a todos los Scrum Masters del proyecto cuando un desarrollador solicita cerrar una HU.
-    Se dispara desde la vista `SolicitarCierreHUView`.
+            Se dispara desde la vista `SolicitarCierreHUView`.
     """
     scrum_masters = Usuario.objects.filter(
         participacion__id_proyecto=historia.proyecto,
-        participacion__id_rol__nombre_rol="Scrum Master"
+        participacion__id_rol__nombre_rol="scrum_master"
     ).distinct()
 
     for sm in scrum_masters:
@@ -47,13 +48,13 @@ def notificar_scrum_master_solicitud_cierre(sender, historia, solicitante, **kwa
         from_email = settings.EMAIL_HOST_USER
         to = [sm.email]
 
-        proyecto_url = f"https://collabapp.com/proyectos/{historia.proyecto.id}/hu/{historia.id}"
-        text_content = f"{solicitante.nombre} ha solicitado cerrar la historia: '{historia.titulo}'.\nPuedes verla en: {proyecto_url}"
+        proyecto_url = f"https://collabapp.com/proyectos/{historia.proyecto_id}/hu/{historia.id}"
+        text_content = f"{solicitante.nombre_completo} ha solicitado cerrar la historia: '{historia.titulo}'.\nPuedes verla en: {proyecto_url}"
 
         html_content = f"""
         <html>
         <body>
-            <p><strong>{solicitante.nombre}</strong> ha solicitado cerrar la historia de usuario:</p>
+            <p><strong>{solicitante.nombre_completo}</strong> ha solicitado cerrar la historia de usuario:</p>
             <p><strong>{historia.titulo}</strong></p>
             <p>Puedes revisarla en el siguiente enlace:</p>
             <a href="{proyecto_url}">Ver historia</a>
@@ -69,58 +70,42 @@ def notificar_scrum_master_solicitud_cierre(sender, historia, solicitante, **kwa
             print(f"Error al enviar email: {e}")
 
 
-# 📩 Notifica al desarrollador cuando se le asigna una historia de usuario (solo si fue recién creada)
-@receiver(post_save, sender=Tarea)
-def notificar_asignacion_o_reasignacion_tarea(sender, instance, created, **kwargs):
-    """
-    Notifica al desarrollador cuando:
-    - Se crea una nueva tarea con participación asignada.
-    - Se actualiza una tarea y cambia la participación asignada.
-    """
-    if not instance.participacion_asignada:
-        return  # No hay nadie asignado, no se notifica
+#Notifica al desarrollador cuando se le asigna una historia de usuario al momento de crearla.
+@receiver(post_save, sender=Historia_usuario)
+def notificar_asignacion_historia_usuario(sender, instance, created, **kwargs):
+    
+    if created and instance.participacion_asignada:
+        usuario = instance.participacion_asignada.id_usuario
+        email = usuario.email
 
-    usuario = instance.participacion_asignada.id_usuario
+        subject = "Nueva historia de usuario asignada"
+        from_email = settings.EMAIL_HOST_USER
+        to = [email]
 
-    # Detectar si es creación o cambio de asignación
-    if created:
-        motivo = "asignado"
-    else:
-        # Verificamos si hubo cambio en la asignación usando el historial anterior
+        historia_url = f"https://collabapp.com/proyectos/{instance.proyecto_id}/hu/{instance.id}"
+        text_content = (
+            f"Se te ha asignado una nueva historia de usuario:\n"
+            f"'{instance.titulo}'\n\n"
+            f"Descripción: {instance.descripcion}\n"
+            f"Puedes revisarla aquí: {historia_url}"
+        )
+
+        html_content = f"""
+        <html>
+        <body>
+            <p>Se te ha asignado una nueva historia de usuario:</p>
+            <p><strong>{instance.titulo}</strong></p>
+            <p>{instance.descripcion}</p>
+            <p>Puedes verla en el siguiente enlace:</p>
+            <a href="{historia_url}">Ver historia</a>
+        </body>
+        </html>
+        """
+
+        msg = EmailMultiAlternatives(subject, text_content, from_email, to)
+        msg.attach_alternative(html_content, "text/html")
+
         try:
-            old_instance = sender.objects.get(pk=instance.pk)
-            if old_instance.participacion_asignada != instance.participacion_asignada:
-                motivo = "reasignado"
-            else:
-                return  # No hubo cambio, no notificar
-        except sender.DoesNotExist:
-            return
-
-    subject = "Tarea asignada" if motivo == "asignado" else "Tarea reasignada"
-    from_email = settings.EMAIL_HOST_USER
-    to = [usuario.email]
-
-    tarea_url = f"https://collabapp.com/proyectos/{instance.id_hu.proyecto.id}/hu/{instance.id_hu.id}/tareas/{instance.id}"
-    text_content = (
-        f"Se te ha {motivo} una tarea: '{instance.nombre_tarea}'.\n"
-        f"Puedes verla en: {tarea_url}"
-    )
-
-    html_content = f"""
-    <html>
-    <body>
-        <p>Se te ha <strong>{motivo}</strong> una tarea:</p>
-        <p><strong>{instance.nombre_tarea}</strong></p>
-        <p>Historia de usuario: <strong>{instance.id_hu.titulo}</strong></p>
-        <p>Puedes verla en el siguiente enlace:</p>
-        <a href="{tarea_url}">Ver tarea</a>
-    </body>
-    </html>
-    """
-
-    msg = EmailMultiAlternatives(subject, text_content, from_email, to)
-    msg.attach_alternative(html_content, "text/html")
-    try:
-        msg.send()
-    except Exception as e:
-        print(f"Error al enviar email al desarrollador: {e}")
+            msg.send()
+        except Exception as e:
+            print(f"❌ Error al enviar email al desarrollador asignado a HU: {e}")

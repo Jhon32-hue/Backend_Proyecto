@@ -22,6 +22,14 @@ class TareaSerializer(serializers.ModelSerializer):
 
             if participacion and participacion.id_usuario != user:
                 raise serializers.ValidationError("No puedes asignar esta tarea a otro usuario.")
+            
+            # ⚠️ Validar que no exista ya una historia igual
+            if Tarea.objects.filter(
+                titulo=data['titulo'],
+                descripcion=data['descripcion'],
+                participacion_asignada=data.get('participacion_asignada')
+            ).exists():
+                raise serializers.ValidationError("Ya existe una tarea creada con el mismo contenido en esta Historia de Usuario.")
 
         return data
 

@@ -38,14 +38,15 @@ class HistoriaUsuarioViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         historia = self.get_object()
-        nuevo_estado = self.request.data.get('estado', '').lower()
+        nuevo_estado_raw = self.request.data.get('estado', '')
+        nuevo_estado = nuevo_estado_raw.lower().strip()  
 
         if nuevo_estado == Historia_usuario.ESTADO_CERRADA:
             tareas = Tarea.objects.filter(id_hu=historia)
             if not tareas.exists() or tareas.filter(estado_tarea__in=['Por hacer', 'En progreso']).exists():
                 raise ValidationError("No se puede cerrar la historia hasta que todas sus tareas estén en estado 'Hecha'.")
 
-            serializer.save(fecha_cierre=timezone.now())
+            serializer.save(estado=Historia_usuario.ESTADO_CERRADA, fecha_cierre=timezone.now())
         else:
             serializer.save()
 
@@ -67,8 +68,15 @@ class SolicitarCierreHUView(APIView):
             return Response({"detail": "No tienes permiso para solicitar el cierre de esta HU."}, status=HTTP_403_FORBIDDEN)
 
         tareas = Tarea.objects.filter(id_hu=hu)
-        if not tareas.exists() or tareas.exclude(estado_tarea='Hecha').exists():
-            return Response({"detail": "No puedes solicitar el cierre hasta que todas las tareas estén en 'Hecha'."}, status=HTTP_400_BAD_REQUEST)
+        if not tareas.exists():
+            return Response({"detail": "La historia no tiene tareas asociadas."}, status=HTTP_400_BAD_REQUEST)
+
+        tareas_pendientes = tareas.exclude(estado_tarea__iexact='hecha')
+        if tareas_pendientes.exists():
+            return Response({
+                "detail": "No puedes solicitar el cierre hasta que todas las tareas estén en 'Hecha'.",
+                "tareas_pendientes": list(tareas_pendientes.values('id_tarea', 'titulo', 'estado_tarea'))
+            }, status=HTTP_400_BAD_REQUEST)
 
         # 🔔 Disparar la señal
         solicitud_cierre_hu.send(sender=self.__class__, historia=hu, solicitante=request.user)
