@@ -9,7 +9,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Proyecto
         fields = ['id_proyecto', 'nombre', 'descripcion', 'estado_proyecto', 'usuario']
-        read_only_fields = ['id_proyecto']
+        read_only_fields = ['id_proyecto', 'usuario']
 
 # 🔹 Serializer para invitar colaboradores a un proyecto
 class InvitacionColaboradorSerializer(serializers.Serializer):
