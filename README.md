@@ -1,6 +1,6 @@
-📚 Documentación Técnica API - Backend Django REST Framework
+# 📚 Documentación Técnica API - Backend Django REST Framework
 
-1. 🧾 Resumen del Proyecto
+## 1. 🧾 Resumen del Proyecto
 Este backend implementa un sistema de gestión de proyectos basado en metodologías ágiles, permitiendo a los usuarios:
 ●	Crear y gestionar proyectos
 ●	Administrar historias de usuario (HU) y tareas
@@ -8,7 +8,7 @@ Este backend implementa un sistema de gestión de proyectos basado en metodolog�
 ●	Visualizar un historial de actividades
 El sistema también permite autenticación por JWT, recuperación de contraseña y administración de roles de usuario.
 
-3.Tecnologías Utilizadas
+## 2.Tecnologías Utilizadas
 ●	Python 3.11+
 ●	Django 4.2+
 ●	Django REST Framework (DRF)
@@ -17,8 +17,10 @@ El sistema también permite autenticación por JWT, recuperación de contraseña
 ●	PostgreSQL como base de datos principal
 ●	dotenv + decouple para variables de entorno
 
-4. Modelo de Entidad-Relación BD
-5. ![image](https://github.com/user-attachments/assets/5b99ea71-c27a-4a03-b4bf-e956072b20bc)
+## 3. Modelo de Entidad-Relación BD
+ ![image](https://github.com/user-attachments/assets/5b99ea71-c27a-4a03-b4bf-e956072b20bc)
+
+
 
 
 # Como ejecutar el proyecto
@@ -39,4 +41,4 @@ El sistema también permite autenticación por JWT, recuperación de contraseña
 5.	Ejecutar migraciones: python manage.py migrate
 6.	Correr servidor: python manage.py runserver
 
-##Continua localmente
+## Continua localmente
