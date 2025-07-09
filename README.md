@@ -1,3 +1,26 @@
+📚 Documentación Técnica API - Backend Django REST Framework
+
+1. 🧾 Resumen del Proyecto
+Este backend implementa un sistema de gestión de proyectos basado en metodologías ágiles, permitiendo a los usuarios:
+●	Crear y gestionar proyectos
+●	Administrar historias de usuario (HU) y tareas
+●	Invitar y gestionar colaboradores con diferentes roles
+●	Visualizar un historial de actividades
+El sistema también permite autenticación por JWT, recuperación de contraseña y administración de roles de usuario.
+
+3.Tecnologías Utilizadas
+●	Python 3.11+
+●	Django 4.2+
+●	Django REST Framework (DRF)
+●	SimpleJWT para autenticación con tokens
+●	dj-rest-auth + allauth para login y registro
+●	PostgreSQL como base de datos principal
+●	dotenv + decouple para variables de entorno
+
+4. Modelo de Entidad-Relación BD
+5. ![image](https://github.com/user-attachments/assets/5b99ea71-c27a-4a03-b4bf-e956072b20bc)
+
+
 # Como ejecutar el proyecto
 
 ## Requerimientos
@@ -8,51 +31,12 @@
 
 ## Clonar repositorio
 
-Se recomienda crear una carpeta vacía en algun directorio de tu computador en mi caso yo la creare en la carpeta documentos:
+ 5.⚙️ Instalación y Configuración
+1.	Crear entorno virtual: python -m venv venv
+2.	Activar entorno: source venv/bin/actívate (Dependiendo del sistema operativo)
+3.	Instalar dependencias: pip install -r requirements.txt
+4.	Configurar archivo .env
+5.	Ejecutar migraciones: python manage.py migrate
+6.	Correr servidor: python manage.py runserver
 
-
-```bash
-cd Documents
-mkdir proyecto_final_diplomado
-cd proyecto_final_diplomado
-```
-
-Clonamos el repositorio
-```bash
-git https://github.com/Jhon32-hue/Backend_Proyecto.git
-```
-
-Creamos y activamos un entorno virtual
-```bash
-python -m venv enviroment
-#windows
-.\enviroment\Scripts\activate
-#Mac / Linux
-source enviroment/bin/activate
-```
-
-## Instalamos dependencias
-Ahora debemos instalar las dependencias del proyecto, para esto debemos primero ir a la carpeta que contiene el proyecto de django
-
-```bash
-cd backend
-```
-
-Ahora debemos ejecutar el comando para instalar las dependencias
-
-```bash
-pip install -r requirements.txt
-```
-
-## Configurar las variables de entorno
-Crea un archivo .env en la raiz del proyecto de django, cosa que quede al mismo nivel que el archivo manage.py; para este archivo .env puedes tomar como referencia el archivo .env.example
-
-```bash
-touch .env
-```
-
-
-## Modifica el fixture de la aplicación de users
-```bash
-python manage.py loaddata users 
-```
+##Continua localmente
