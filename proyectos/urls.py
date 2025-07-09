@@ -1,13 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-
-# ✅ Importación de vistas
 from proyectos.views.proyecto_view import (
     ProyectoViewSet,
-    InvitarColaboradorView,
-    AceptarInvitacionView,   # ✅ NUEVA VISTA IMPORTADA
+    InvitarColaboradorView, 
+    GestionInvitacionView,
     CambiarRolParticipanteView,
-    completar_registro_view
 )
 from proyectos.views.hu_view import HistoriaUsuarioViewSet, SolicitarCierreHUView
 from proyectos.views.tarea_view import TareaViewSet
@@ -21,22 +18,20 @@ router.register(r'tareas', TareaViewSet, basename='tareas')
 urlpatterns = [
     path('', include(router.urls)),
 
-    # ✅ Rutas personalizadas
+    # Rutas personalizadas
     path('invitar-colaborador/', InvitarColaboradorView.as_view(), name='invitar-colaborador'),
     path('cambiar-rol/', CambiarRolParticipanteView.as_view(), name='cambiar-rol'),
-    path('completar-registro/', completar_registro_view, name='completar-registro'),
+    path('gestion-invitacion/', GestionInvitacionView.as_view(), name='gestion-invitacion'),
     path('participacion/', ParticipacionProyectoViewSet.as_view({'get': 'list'}), name='ver-participacion'),
 
-    # ✅ Ruta para aceptar invitación
-    path('aceptar-invitacion/', AceptarInvitacionView.as_view(), name='aceptar-invitacion'),
-
-    # 🔔 Ruta para solicitar cierre de HU
+    # 🔔 Ruta adicional para solicitar cierre de HU
     path(
         'historia_usuario/<int:pk>/solicitar-cierre/',
         SolicitarCierreHUView.as_view(),
         name='solicitar-cierre-hu'
     ),
 ]
+
 #25 rutas
 
 '''

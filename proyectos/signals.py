@@ -75,6 +75,8 @@ def notificar_scrum_master_solicitud_cierre(sender, historia, solicitante, **kwa
 def notificar_asignacion_historia_usuario(sender, instance, created, **kwargs):
     
     if created and instance.participacion_asignada:
+        print(f"✅ Señal ejecutada para historia: {instance.titulo}")
+
         usuario = instance.participacion_asignada.id_usuario
         email = usuario.email
 

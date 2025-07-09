@@ -7,6 +7,7 @@ class Proyecto(models.Model):
     ESTADOS = [
         ('activo', 'Activo'),
         ('en_progreso', 'En progreso'),
+        ('hecho', 'Hecho'),
         ('finalizado', 'Finalizado'),
     ]
 

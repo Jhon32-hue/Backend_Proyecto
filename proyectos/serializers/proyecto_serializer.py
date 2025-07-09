@@ -3,13 +3,22 @@ from proyectos.models.proyecto import Proyecto
 from proyectos.models.participacion import Participacion
 from usuarios.models.usuario import Usuario
 from usuarios.models.rol import Rol
+from usuarios.serializers.usuario_serializer import Usuario_Serializer
 
 # 🔹 Serializer principal para CRUD de proyectos
 class ProyectoSerializer(serializers.ModelSerializer):
+    usuario = serializers.SerializerMethodField()
+
     class Meta:
         model = Proyecto
         fields = ['id_proyecto', 'nombre', 'descripcion', 'estado_proyecto', 'usuario']
-        read_only_fields = ['id_proyecto', 'usuario']
+
+    def get_usuario(self, obj):
+        return {
+            "id": obj.usuario.id,
+            "email": obj.usuario.email,
+            "nombre_completo": obj.usuario.nombre_completo  
+        }
 
 # 🔹 Serializer para invitar colaboradores a un proyecto
 class InvitacionColaboradorSerializer(serializers.Serializer):
@@ -32,7 +41,7 @@ class CambiarRolSerializer(serializers.Serializer):
     id_usuario = serializers.IntegerField()
     id_proyecto = serializers.IntegerField()
     nuevo_rol = serializers.CharField()
-    rol_anterior = serializers.CharField(read_only=True)  # Opcional, si lo quieres incluir
+    rol_anterior = serializers.CharField(read_only=True)
 
     def validate(self, data):
         id_usuario = data.get("id_usuario")
@@ -75,22 +84,23 @@ class CambiarRolSerializer(serializers.Serializer):
         return data
 
 
-# 🔹 Serializer simplificado de usuario (usado dentro de ParticipacionSerializer)
 class UsuarioSimpleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Usuario
-        fields = ['id', 'email']
+        fields = ['id', 'email', 'nombre_completo']  #
+
 
 # 🔹 Serializer simplificado de rol (usado dentro de ParticipacionSerializer)
-class RolSerializer(serializers.ModelSerializer):
+class Rol_Serializer(serializers.ModelSerializer):
     class Meta:
         model = Rol
-        fields = ['id_rol', 'nombre_rol']
+        fields = ['id_rol', 'nombre_rol', 'descripcion']
+
 
 # 🔹 Serializer detallado para mostrar participaciones (nested)
 class ParticipacionSerializer(serializers.ModelSerializer):
     id_usuario = UsuarioSimpleSerializer()
-    id_rol = RolSerializer()
+    id_rol = Rol_Serializer()
     id_proyecto = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:

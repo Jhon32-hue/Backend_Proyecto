@@ -7,39 +7,6 @@ from rest_framework.permissions import AllowAny
 from usuarios.serializers.usuario_serializer import Usuario_Serializer
 from usuarios.models.usuario import Usuario
 from django.utils import timezone
-
-#Función personalizada para iniciar sesión
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def login_view(request):
-#Obtener el usuario y la contraseña que se ha enviado
-    email_from_client= request.data.get('email')
-    password_from_client= request.data.get('password')
-    
-#Se valida si el usuario está en la base de datos
-    user = authenticate(email= email_from_client, password = password_from_client)
-
-#Se genera el token si el la autenticacion fue un éxito
-    if user and user.is_active:
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                'email' : email_from_client,
-                'nombre_completo' : user.nombre_completo,
-                'user_id' : user.id,
-                'estado_cuenta' : user.estado_cuenta,
-                'refresh' : str(refresh),
-                'token' : str(refresh.access_token),
-            },
-            status.HTTP_200_OK
-        )
-    else:
-        return Response(
-            {
-                'error' : "Credenciales invalidas"
-            },
-            status.HTTP_401_UNAUTHORIZED
-        )
     
 
 @api_view(['POST'])

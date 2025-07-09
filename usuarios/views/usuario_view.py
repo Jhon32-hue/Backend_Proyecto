@@ -2,6 +2,9 @@ from rest_framework import generics, status
 from django.core.mail import send_mail
 from django.utils import timezone
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -10,6 +13,7 @@ from usuarios.serializers.usuario_serializer import Usuario_Serializer, CustomTo
 from usuarios.serializers.usuario_serializer import (
     EnviarCodigoRecuperacionSerializer,
     ConfirmarCodigoRecuperacionSerializer,
+    Usuario_Serializer
 )
 
 #Obtiene el serialziador para generar un token personalizado JWT
@@ -21,6 +25,31 @@ class UsuarioRegistroView(generics.CreateAPIView):
     queryset = Usuario.objects.all()
     serializer_class = Usuario_Serializer
     permission_classes = [AllowAny]
+
+    def perform_create(self, serializer):
+        # Crear el usuario
+        user = serializer.save()
+
+        # Generar el token JWT
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+
+        # Asegúrate de que el token se genera correctamente
+        print(f"Token generado: {access_token}")
+
+        # Devolver la respuesta con el token y los datos del usuario
+        return Response({
+            "accessToken": access_token,  # Incluye el token aquí
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "nombre_completo": user.nombre_completo,
+                "estado_cuenta": user.estado_cuenta,
+                "fecha_registro": user.fecha_registro,
+                "ultima_conexion": user.ultima_conexion,
+                "is_active": user.is_active
+            }
+        }, status=status.HTTP_201_CREATED)
     
  #Devuelve los datos del usuario
 class UsuarioPerfilView(APIView):
@@ -30,6 +59,13 @@ class UsuarioPerfilView(APIView):
         serializer = Usuario_Serializer(request.user)
         return Response(serializer.data)
 
+    def patch(self, request):
+        serializer = Usuario_Serializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
  #Lista todos los usuarios si el solicitante es superuser o staff. Si no, devuelve solo su propio perfil.
 class UsuarioListView(generics.ListAPIView):
     serializer_class = Usuario_Serializer

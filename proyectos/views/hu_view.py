@@ -24,22 +24,30 @@ from proyectos.signals import solicitud_cierre_hu
 class HistoriaUsuarioViewSet(viewsets.ModelViewSet):
     """
     ViewSet que gestiona las operaciones CRUD de historias de usuario.
-     Reglas clave:
-        - Solo muestra historias asociadas al usuario autenticado (por participación).
-        - Solo permite cerrar una HU si todas sus tareas están en estado 'Hecha'.
-        - Al cerrarse, se registra la fecha de cierre.
+
+    - Muestra solo historias donde el usuario participa en el proyecto.
+    - Permite filtrar por proyecto con ?proyecto=<id>.
+    - Controla reglas de cierre: solo si todas las tareas están 'Hecha'.
     """
     queryset = Historia_usuario.objects.all()
     serializer_class = HistoriaUsuarioSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Historia_usuario.objects.filter(proyecto__participacion__id_usuario=self.request.user).distinct()
+        user = self.request.user
+        queryset = Historia_usuario.objects.filter(proyecto__participacion__id_usuario=user).distinct()
+
+        # 🔍 Filtro opcional por proyecto
+        proyecto_id = self.request.query_params.get('proyecto')
+        if proyecto_id:
+            queryset = queryset.filter(proyecto__id_proyecto=proyecto_id)
+
+        return queryset
 
     def perform_update(self, serializer):
         historia = self.get_object()
         nuevo_estado_raw = self.request.data.get('estado', '')
-        nuevo_estado = nuevo_estado_raw.lower().strip()  
+        nuevo_estado = nuevo_estado_raw.lower().strip()
 
         if nuevo_estado == Historia_usuario.ESTADO_CERRADA:
             tareas = Tarea.objects.filter(id_hu=historia)
@@ -49,7 +57,6 @@ class HistoriaUsuarioViewSet(viewsets.ModelViewSet):
             serializer.save(estado=Historia_usuario.ESTADO_CERRADA, fecha_cierre=timezone.now())
         else:
             serializer.save()
-
 
 class SolicitarCierreHUView(APIView):
     """
