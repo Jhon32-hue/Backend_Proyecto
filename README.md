@@ -1,7 +1,6 @@
 # 📚 Project-management-API-DRF
 
 API backend desarrollada con Django REST Framework para la gestión de proyectos colaborativos basada en metodologías ágiles. Esta API permite la creación de proyectos, manejo de historias de usuario, asignación de tareas, roles personalizados y sistema de invitaciones, todo esto sumado a la posibilidad de monitorear en tiempo real cada una de las actividades de los colaboradores asignados a los proyectos. Además, esta API cuenta con un sistema de 🔐 Autenticación y Seguridad basado en el el protocolo OAUTH 2.0 y JWT
- monitorear en tiempo real la actividad de cada uno de los colaboradores asignados a los proyectos.
 
 ---
 
