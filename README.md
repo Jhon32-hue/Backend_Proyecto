@@ -62,9 +62,9 @@ Asegúrate de tener instalado en tu sistema:
 Jhoneider Criado
 [jhoneideralecxander@gmail.com]
 
-📝 Licencia
+## 📝 Licencia
 Este proyecto está licenciado bajo la MIT License.
 
-⭐ ¿Te fue útil?
+## ⭐ ¿Te fue útil?
 ¡Dale una estrella al repositorio y compártelo! ⭐
 
